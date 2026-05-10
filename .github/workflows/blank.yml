@@ -1,34 +1,51 @@
-name: Extract Bolt Project to Root
+name: Extract Bolt Project
 
 on:
   push:
-    branches: [ "main" ] # Triggers whenever you push to the main branch
-  workflow_dispatch:      # Allows you to run this manually from the "Actions" tab
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  build-and-prep:
+  extract-job:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Pulls your code (including the bolt.zip) into the runner
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Extract bolt.zip directly into the current directory (.)
-      # -o: Overwrite existing files without prompting
-      # -q: Quiet mode (prevents thousands of lines in your logs)
+      # Debug Step: See exactly what the runner sees before unzipping
+      - name: Check file existence
+        run: |
+          echo "Current directory: $(pwd)"
+          ls -lh
+
+      - name: Install Unzip (Fallback)
+        run: sudo apt-get install -y unzip
+
       - name: Extract bolt.zip to Root
         run: |
-          if [ -f bolt.zip ]; then
+          # Check if file exists, then unzip. 
+          # We use -o to overwrite and -qq for extra quiet to avoid log bloat.
+          if [ -f "bolt.zip" ]; then
             unzip -o bolt.zip -d .
-            echo "Extraction complete."
-            rm bolt.zip
-            echo "Cleaned up zip file."
+            echo "Unzip successful."
           else
-            echo "bolt.zip not found. Skipping extraction."
+            echo "ERROR: bolt.zip not found in root!"
             exit 1
           fi
 
-      # 3. List the root directory to confirm files are where they should be
-      - name: Verify Root Files
-        run: ls -la
+      # Move files if they are trapped in a subfolder
+      # Run this ONLY if your zip contains one big folder
+      - name: Move files out of subfolder (if applicable)
+        run: |
+          # This checks if there is only one folder and no files in root
+          # If your zip had a folder named 'project', this moves everything out
+          # Uncomment the lines below if your files are 'missing' after unzip
+          # mv project/* . 2>/dev/null || true
+          # rm -rf project || true
+
+      - name: Final Cleanup and Verify
+        run: |
+          rm -f bolt.zip
+          echo "Final file list:"
+          ls -R
